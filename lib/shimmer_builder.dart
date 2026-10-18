@@ -151,6 +151,12 @@ class _ShimmerPaintOverState extends State<ShimmerPaintOver>
   }
 
   @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     ShimmerInherited shimmerInherited = Shimmer.of(context);
     return (widget.enable ?? shimmerInherited.enable)

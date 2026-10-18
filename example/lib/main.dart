@@ -28,18 +28,47 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  bool loading = true;
+
+  IconData getIcon(int index) {
+    if (index % 2 == 0) {
+      return Icons.account_circle;
+    }
+    return Icons.add_circle_outline_rounded;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => setState(() {
+          loading = !loading;
+        }),
+        child: Icon(loading ? Icons.stop : Icons.play_arrow),
+      ),
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
       body: Shimmer(
-        enable: true,
-        child: Center(
-          child: ShimmerPaintOver(
-            child: Text("SHIMMER GOOOO", style: TextStyle(fontSize: 30)),
+        enable: loading,
+        child: ListView.builder(
+          itemCount: 6,
+          itemBuilder: (context, index) => Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ListTile(
+              leading: ShimmerPaintOver(
+                child: Icon(
+                  loading ? Icons.add_box_sharp : getIcon(index),
+                  size: 40,
+                ),
+              ),
+              title: ShimmerBuilder(
+                childBuilder: (context) => Text("child number $index"),
+                sampleBuilder: (context) => Text("child sample"),
+              ),
+              subtitle: ShimmerPaintOver(child: Text("subtitle")),
+            ),
           ),
         ),
       ),
