@@ -146,7 +146,7 @@ class _ShimmerPaintOverState extends State<ShimmerPaintOver>
     super.initState();
     controller = AnimationController(
       vsync: this,
-      duration: widget.duration ?? Duration(seconds: 1),
+      duration: widget.duration ?? Duration(milliseconds: 1500),
     )..repeat();
   }
 
