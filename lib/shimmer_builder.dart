@@ -210,7 +210,7 @@ class ShimmerCustomPainter extends CustomPainter {
     final diagonal = math.sqrt(
       size.width * size.width + size.height * size.height,
     );
-    final gradiantWidth = math.cos(rotation) * diagonal;
+    final gradientWidth = math.cos(rotation) * diagonal;
 
     final outer = rRect.outerRect;
     paint.shader =
@@ -220,9 +220,9 @@ class ShimmerCustomPainter extends CustomPainter {
           transform: GradientRotation(rotation),
         ).createShader(
           Rect.fromLTRB(
-            outer.left - gradiantWidth,
+            outer.left - gradientWidth,
             outer.top,
-            outer.right + gradiantWidth,
+            outer.right + gradientWidth,
             outer.bottom,
           ),
         );

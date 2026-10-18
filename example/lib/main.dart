@@ -52,24 +52,35 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Shimmer(
         enable: loading,
-        child: ListView.builder(
-          itemCount: 6,
-          itemBuilder: (context, index) => Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: ListTile(
-              leading: ShimmerPaintOver(
-                child: Icon(
-                  loading ? Icons.add_box_sharp : getIcon(index),
-                  size: 40,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: ShimmerPaintOver(child: Icon(Icons.abc, size: 150)),
+            ),
+            Flexible(
+              child: ListView.builder(
+                itemCount: 6,
+                itemBuilder: (context, index) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: ShimmerPaintOver(
+                      child: Icon(
+                        loading ? Icons.add_box_sharp : getIcon(index),
+                        size: 40,
+                      ),
+                    ),
+                    title: ShimmerBuilder(
+                      childBuilder: (context) => Text("child number $index"),
+                      sampleBuilder: (context) => Text("child sample"),
+                    ),
+                    subtitle: ShimmerPaintOver(child: Text("subtitle")),
+                  ),
                 ),
               ),
-              title: ShimmerBuilder(
-                childBuilder: (context) => Text("child number $index"),
-                sampleBuilder: (context) => Text("child sample"),
-              ),
-              subtitle: ShimmerPaintOver(child: Text("subtitle")),
             ),
-          ),
+          ],
         ),
       ),
     );
