@@ -157,6 +157,22 @@ class _ShimmerPaintOverState extends State<ShimmerPaintOver>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final ShimmerInherited shimmer = Shimmer.of(context);
+
+    controller
+      ..stop()
+      ..duration = shimmer.duration
+      ..reset();
+
+    if (shimmer.enable) {
+      controller.repeat();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     ShimmerInherited shimmerInherited = Shimmer.of(context);
     return (widget.enable ?? shimmerInherited.enable)
@@ -236,6 +252,7 @@ class ShimmerCustomPainter extends CustomPainter {
         oldDelegate.rotation != rotation ||
         oldDelegate.backgroundColor != backgroundColor ||
         oldDelegate.forgroundColor != forgroundColor ||
-        oldDelegate.radius != radius;
+        oldDelegate.radius != radius ||
+        oldDelegate.offset != offset;
   }
 }
