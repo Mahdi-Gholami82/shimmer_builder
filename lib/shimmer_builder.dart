@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 class ShimmerBuilder extends StatelessWidget {
   final Widget Function(BuildContext context) childBuilder;
@@ -40,6 +41,7 @@ class Shimmer extends StatelessWidget {
     required this.child,
     this.offset,
     this.rotation,
+    this.paintChildren = false,
   });
   final bool enable;
   final Color? backgroundColor;
@@ -47,6 +49,7 @@ class Shimmer extends StatelessWidget {
   final double? radius;
   final double? offset;
   final double? rotation;
+  final bool paintChildren;
   final Duration duration;
   final Widget child;
 
@@ -78,6 +81,7 @@ class Shimmer extends StatelessWidget {
       duration: duration,
       offset: offset ?? 0.2,
       rotation: rotation ?? 0.6,
+      paintChildren: paintChildren,
       child: child,
     );
   }
@@ -94,6 +98,7 @@ class ShimmerInherited extends InheritedWidget {
     required this.duration,
     required this.offset,
     required this.rotation,
+    required this.paintChildren,
   });
   final bool enable;
   final Color backgroundColor;
@@ -102,6 +107,7 @@ class ShimmerInherited extends InheritedWidget {
   final Duration duration;
   final double offset;
   final double rotation;
+  final bool paintChildren;
 
   @override
   bool updateShouldNotify(covariant InheritedWidget oldWidget) => true;
@@ -125,9 +131,11 @@ class ShimmerPaintOver extends StatefulWidget {
     this.offset,
     this.rotation,
     this.enable,
-    required this.child,
+    this.child,
+    this.paintChild = false,
   });
-  final Widget child;
+  final Widget? child;
+  final bool? paintChild;
   final Duration? duration;
   final Radius? radius;
   final double? offset;
@@ -175,84 +183,148 @@ class _ShimmerPaintOverState extends State<ShimmerPaintOver>
   @override
   Widget build(BuildContext context) {
     ShimmerInherited shimmerInherited = Shimmer.of(context);
-    return (widget.enable ?? shimmerInherited.enable)
-        ? AnimatedBuilder(
-            animation: controller,
-            child: widget.child,
-            builder: (context, child) => CustomPaint(
-              foregroundPainter: ShimmerCustomPainter(
+    return SizedBox(
+      child: (widget.enable ?? shimmerInherited.enable)
+          ? AnimatedBuilder(
+              animation: controller,
+              child: widget.child,
+              builder: (context, child) => ShimmerSingleChildPainter(
                 backgroundColor: shimmerInherited.backgroundColor,
                 forgroundColor: shimmerInherited.forgroundColor,
                 radius: widget.radius ?? shimmerInherited.radius,
                 progress: controller.value,
                 rotation: widget.rotation ?? shimmerInherited.rotation,
-                offset: widget.offset ?? shimmerInherited.offset,
+                gradiantOffset: widget.offset ?? shimmerInherited.offset,
+                paintChild: widget.paintChild ?? shimmerInherited.paintChildren,
+                child: child,
               ),
-              child: child,
-            ),
-          )
-        : widget.child;
+            )
+          : widget.child,
+    );
   }
 }
 
-class ShimmerCustomPainter extends CustomPainter {
-  ShimmerCustomPainter({
+class ShimmerSingleChildRenderBox extends RenderProxyBox {
+  ShimmerSingleChildRenderBox({
     required this.backgroundColor,
     required this.forgroundColor,
     required this.radius,
     required this.progress,
     required this.rotation,
-    required this.offset,
+    required this.gradiantOffset,
+    required this.paintChild,
   });
+  Color backgroundColor;
+  Color forgroundColor;
+  Radius radius;
+  double progress;
+  double rotation;
+  double gradiantOffset;
+  bool paintChild;
 
+  @override
+  void performLayout() {
+    if (child == null) {
+      size = computeSizeForNoChild(constraints);
+      return;
+    }
+    size = constraints.constrain(
+      (child!..layout(constraints.loosen(), parentUsesSize: true)).size,
+    );
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (child == null || size.isEmpty) return;
+    final Canvas canvas = context.canvas;
+    layer ??= ContainerLayer();
+    if (paintChild) {
+      context.paintChild(child!, offset);
+    }
+    Rect childBoundingBox = offset & (child!.size);
+
+    final rRect = RRect.fromRectAndRadius(childBoundingBox, radius);
+
+    final paint = Paint()..color = backgroundColor;
+    canvas.drawRRect(rRect, paint);
+
+    // Calculate the rotated gradients required travel distance to ensure it
+    // starts and ends outside the widgets bounds, allowing a smooth shimmer transition
+    final diagonal = math.sqrt(
+      childBoundingBox.width * childBoundingBox.width +
+          childBoundingBox.height * childBoundingBox.height,
+    );
+    final gradientWidth = math.cos(rotation) * diagonal;
+
+    final outer = rRect.outerRect;
+
+    var gradiantPaint = Paint()
+      ..shader =
+          LinearGradient(
+            colors: [backgroundColor, forgroundColor, backgroundColor],
+            stops: [
+              progress - gradiantOffset,
+              progress,
+              progress + gradiantOffset,
+            ],
+            transform: GradientRotation(rotation),
+          ).createShader(
+            Rect.fromLTRB(
+              outer.left - gradientWidth,
+              outer.top,
+              outer.right + gradientWidth,
+              outer.bottom,
+            ),
+          );
+    canvas.drawRRect(rRect, gradiantPaint);
+  }
+}
+
+class ShimmerSingleChildPainter extends SingleChildRenderObjectWidget {
   final Color backgroundColor;
   final Color forgroundColor;
   final Radius radius;
   final double progress;
   final double rotation;
-  final double offset;
+  final double gradiantOffset;
+  final bool paintChild;
+
+  const ShimmerSingleChildPainter({
+    super.key,
+    required this.backgroundColor,
+    required this.forgroundColor,
+    required this.radius,
+    required this.progress,
+    required this.rotation,
+    required this.gradiantOffset,
+    required super.child,
+    required this.paintChild,
+  });
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final rRect = RRect.fromRectAndRadius(Offset.zero & size, radius);
-
-    final paint = Paint()..color = backgroundColor;
-    canvas.drawRRect(rRect, paint);
-
-    if (size.isEmpty) return;
-
-    // Calculate the rotated gradients required travel distance to ensure it
-    // starts and ends outside the widgets bounds, allowing a smooth shimmer transition
-    final diagonal = math.sqrt(
-      size.width * size.width + size.height * size.height,
+  ShimmerSingleChildRenderBox createRenderObject(BuildContext context) {
+    return ShimmerSingleChildRenderBox(
+      backgroundColor: backgroundColor,
+      forgroundColor: forgroundColor,
+      radius: radius,
+      progress: progress,
+      rotation: rotation,
+      gradiantOffset: gradiantOffset,
+      paintChild: paintChild,
     );
-    final gradientWidth = math.cos(rotation) * diagonal;
-
-    final outer = rRect.outerRect;
-    paint.shader =
-        LinearGradient(
-          colors: [backgroundColor, forgroundColor, backgroundColor],
-          stops: [progress - offset, progress, progress + offset],
-          transform: GradientRotation(rotation),
-        ).createShader(
-          Rect.fromLTRB(
-            outer.left - gradientWidth,
-            outer.top,
-            outer.right + gradientWidth,
-            outer.bottom,
-          ),
-        );
-
-    canvas.drawRRect(rRect, paint);
   }
 
   @override
-  bool shouldRepaint(covariant ShimmerCustomPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.rotation != rotation ||
-        oldDelegate.backgroundColor != backgroundColor ||
-        oldDelegate.forgroundColor != forgroundColor ||
-        oldDelegate.radius != radius ||
-        oldDelegate.offset != offset;
+  void updateRenderObject(
+    BuildContext context,
+    covariant ShimmerSingleChildRenderBox renderObject,
+  ) {
+    renderObject.backgroundColor = backgroundColor;
+    renderObject.forgroundColor = forgroundColor;
+    renderObject.progress = progress;
+    renderObject.radius = radius;
+    renderObject.rotation = rotation;
+    renderObject.gradiantOffset = gradiantOffset;
+    renderObject.markNeedsPaint();
   }
 }
