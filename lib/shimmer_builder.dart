@@ -6,18 +6,18 @@ import 'package:flutter/rendering.dart';
 class ShimmerBuilder extends StatelessWidget {
   final Widget Function(BuildContext context) childBuilder;
   final Widget Function(BuildContext context)? sampleBuilder;
-  final bool? enableShimmer;
+  final bool? enable;
   final bool wrapWithSliverToBoxAdapter;
   const ShimmerBuilder({
     super.key,
-    this.enableShimmer,
+    this.enable,
     required this.childBuilder,
     this.sampleBuilder,
     this.wrapWithSliverToBoxAdapter = false,
   });
   @override
   Widget build(BuildContext context) {
-    bool enabled = enableShimmer ?? Shimmer.maybeOf(context)?.enable ?? false;
+    bool enabled = enable ?? Shimmer.maybeOf(context)?.enable ?? false;
     Widget getShimmer() => ShimmerPaintOver(
       enable: true,
       child: (sampleBuilder ?? childBuilder)(context),
@@ -175,14 +175,14 @@ class _ShimmerPaintOverState extends State<ShimmerPaintOver>
       ..duration = shimmer.duration
       ..reset();
 
-    if (shimmer.enable) {
+    if (widget.enable ?? shimmer.enable) {
       controller.repeat();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    ShimmerInherited shimmerInherited = Shimmer.of(context);
+    ShimmerInherited? shimmerInherited = Shimmer.of(context);
     return SizedBox(
       child: (widget.enable ?? shimmerInherited.enable)
           ? AnimatedBuilder(
