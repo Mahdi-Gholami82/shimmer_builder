@@ -157,24 +157,55 @@ class _ShimmerPaintOverState extends State<ShimmerPaintOver>
   late final AnimationController controller;
   Duration? delay;
 
-  void stop() {
+  void _forwardIfNot() {
+    if (controller.isDismissed || controller.isCompleted) {
+      controller.reset();
+      controller.forward();
+    }
+  }
+
+  void _stop() {
     controller.stop();
-    controller.removeStatusListener(doDelayedRepeat);
+    controller.removeStatusListener(_doDelayedRepeat);
   }
 
-  void start() {
-    controller.addStatusListener(doDelayedRepeat);
-    controller.forward();
+  void _start() {
+    controller.addStatusListener(_doDelayedRepeat);
+    _forwardIfNot();
   }
 
-  Future<void> doDelayedRepeat(AnimationStatus status) async {
+  void _reset({
+    required Duration newDuration,
+    required Duration newDelay,
+    required bool enabled,
+  }) {
+    delay = newDelay;
+    _stop();
+    controller
+      ..duration = newDuration
+      ..reset();
+
+    if (enabled) {
+      _start();
+    }
+  }
+
+  void _resetGetValue() {
+    final ShimmerInherited shimmer = Shimmer.of(context);
+    _reset(
+      newDuration: widget.duration ?? shimmer.duration,
+      newDelay: widget.delay ?? shimmer.delay,
+      enabled: widget.enable ?? shimmer.enable,
+    );
+  }
+
+  Future<void> _doDelayedRepeat(AnimationStatus status) async {
     if (status.isCompleted) {
       if (delay != null) {
         await Future.delayed(delay!);
       }
-      if (mounted && controller.status.isCompleted) {
-        controller.reset();
-        controller.forward();
+      if (mounted) {
+        _forwardIfNot();
       }
     }
   }
@@ -186,32 +217,30 @@ class _ShimmerPaintOverState extends State<ShimmerPaintOver>
       vsync: this,
       duration: widget.duration ?? Duration(milliseconds: 1500),
     );
-    start();
+    _start();
   }
 
   @override
   void dispose() {
-    stop();
+    _stop();
     controller.dispose();
     super.dispose();
   }
 
   @override
+  void didUpdateWidget(covariant ShimmerPaintOver oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.delay != widget.delay ||
+        oldWidget.duration != widget.duration ||
+        oldWidget.enable != widget.enable) {
+      _resetGetValue();
+    }
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    final ShimmerInherited shimmer = Shimmer.of(context);
-    if (widget.delay == null || widget.duration == null) {
-      delay = widget.delay ?? shimmer.delay;
-      stop();
-      controller
-        ..duration = widget.duration ?? shimmer.duration
-        ..reset();
-
-      if (widget.enable ?? shimmer.enable) {
-        start();
-      }
-    }
+    _resetGetValue();
   }
 
   @override
