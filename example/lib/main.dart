@@ -54,6 +54,8 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           body: Shimmer(
             enable: loading,
+            delay: Duration(milliseconds: 100),
+            duration: Duration(seconds: 1),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [

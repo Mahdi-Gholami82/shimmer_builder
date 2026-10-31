@@ -1,5 +1,5 @@
+import 'dart:io';
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -38,6 +38,7 @@ class Shimmer extends StatelessWidget {
     this.forgroundColor,
     this.radius,
     this.duration = const Duration(seconds: 1),
+    this.delay = const Duration(milliseconds: 100),
     required this.child,
     this.offset,
     this.rotation,
@@ -51,6 +52,7 @@ class Shimmer extends StatelessWidget {
   final double? rotation;
   final bool paintChildren;
   final Duration duration;
+  final Duration delay;
   final Widget child;
 
   static ShimmerInherited? maybeOf(BuildContext context) =>
@@ -79,9 +81,10 @@ class Shimmer extends StatelessWidget {
               : Colors.grey.shade600),
       radius: Radius.circular(radius ?? 10),
       duration: duration,
-      offset: offset ?? 0.2,
+      offset: offset ?? 0.4,
       rotation: rotation ?? 0.6,
       paintChildren: paintChildren,
+      delay: delay,
       child: child,
     );
   }
@@ -99,12 +102,14 @@ class ShimmerInherited extends InheritedWidget {
     required this.offset,
     required this.rotation,
     required this.paintChildren,
+    required this.delay,
   });
   final bool enable;
   final Color backgroundColor;
   final Color forgroundColor;
   final Radius radius;
   final Duration duration;
+  final Duration delay;
   final double offset;
   final double rotation;
   final bool paintChildren;
@@ -127,6 +132,7 @@ class ShimmerPaintOver extends StatefulWidget {
   const ShimmerPaintOver({
     super.key,
     this.duration,
+    this.delay,
     this.radius,
     this.offset,
     this.rotation,
@@ -141,6 +147,7 @@ class ShimmerPaintOver extends StatefulWidget {
   final double? offset;
   final double? rotation;
   final bool? enable;
+  final Duration? delay;
   @override
   State<ShimmerPaintOver> createState() => _ShimmerPaintOverState();
 }
@@ -148,6 +155,29 @@ class ShimmerPaintOver extends StatefulWidget {
 class _ShimmerPaintOverState extends State<ShimmerPaintOver>
     with SingleTickerProviderStateMixin {
   late final AnimationController controller;
+  Duration? delay;
+
+  void stop() {
+    controller.stop();
+    controller.removeStatusListener(doDelayedRepeat);
+  }
+
+  void start() {
+    controller.addStatusListener(doDelayedRepeat);
+    controller.forward();
+  }
+
+  Future<void> doDelayedRepeat(AnimationStatus status) async {
+    if (status.isCompleted) {
+      if (delay != null) {
+        await Future.delayed(delay!);
+      }
+      if (mounted && controller.status.isCompleted) {
+        controller.reset();
+        controller.forward();
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -155,11 +185,13 @@ class _ShimmerPaintOverState extends State<ShimmerPaintOver>
     controller = AnimationController(
       vsync: this,
       duration: widget.duration ?? Duration(milliseconds: 1500),
-    )..repeat();
+    );
+    start();
   }
 
   @override
   void dispose() {
+    stop();
     controller.dispose();
     super.dispose();
   }
@@ -169,14 +201,16 @@ class _ShimmerPaintOverState extends State<ShimmerPaintOver>
     super.didChangeDependencies();
 
     final ShimmerInherited shimmer = Shimmer.of(context);
+    if (widget.delay == null || widget.duration == null) {
+      delay = widget.delay ?? shimmer.delay;
+      stop();
+      controller
+        ..duration = widget.duration ?? shimmer.duration
+        ..reset();
 
-    controller
-      ..stop()
-      ..duration = shimmer.duration
-      ..reset();
-
-    if (widget.enable ?? shimmer.enable) {
-      controller.repeat();
+      if (widget.enable ?? shimmer.enable) {
+        start();
+      }
     }
   }
 
@@ -220,6 +254,9 @@ class ShimmerSingleChildRenderBox extends RenderProxyBox {
   double progress;
   double rotation;
   double gradiantOffset;
+  double foregroundLenght = 0;
+  late double gradientBoxWidth;
+  late double gradiantRotatedOffset;
   bool paintChild;
 
   @override
@@ -231,6 +268,12 @@ class ShimmerSingleChildRenderBox extends RenderProxyBox {
     size = constraints.constrain(
       (child!..layout(constraints.loosen(), parentUsesSize: true)).size,
     );
+
+    // Calculate the rotated gradients required travel distance to ensure it
+    // starts and ends outside the widgets bounds, allowing a smooth shimmer transition
+    gradientBoxWidth =
+        size.width * gradiantOffset + (size.height / math.tan(rotation));
+    gradiantRotatedOffset = gradientBoxWidth / size.width;
   }
 
   @override
@@ -245,16 +288,7 @@ class ShimmerSingleChildRenderBox extends RenderProxyBox {
 
     final rRect = RRect.fromRectAndRadius(childBoundingBox, radius);
 
-    final paint = Paint()..color = backgroundColor;
-    canvas.drawRRect(rRect, paint);
-
-    // Calculate the rotated gradients required travel distance to ensure it
-    // starts and ends outside the widgets bounds, allowing a smooth shimmer transition
-    final diagonal = math.sqrt(
-      childBoundingBox.width * childBoundingBox.width +
-          childBoundingBox.height * childBoundingBox.height,
-    );
-    final gradientWidth = math.cos(rotation) * diagonal;
+    canvas.drawRRect(rRect, Paint()..color = backgroundColor);
 
     final outer = rRect.outerRect;
 
@@ -263,16 +297,16 @@ class ShimmerSingleChildRenderBox extends RenderProxyBox {
           LinearGradient(
             colors: [backgroundColor, forgroundColor, backgroundColor],
             stops: [
-              progress - gradiantOffset,
+              progress - gradiantOffset / 2,
               progress,
-              progress + gradiantOffset,
+              progress + gradiantOffset / 2,
             ],
             transform: GradientRotation(rotation),
           ).createShader(
             Rect.fromLTRB(
-              outer.left - gradientWidth,
+              outer.left - gradientBoxWidth,
               outer.top,
-              outer.right + gradientWidth,
+              outer.right + gradientBoxWidth,
               outer.bottom,
             ),
           );
