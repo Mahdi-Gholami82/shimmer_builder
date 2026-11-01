@@ -2,7 +2,7 @@
 
 provides widgets for showing skeleton placeholders using a shimmer effect
 
-# Add to project
+## Add to project
 ```sh
 flutter pub add "shimmer_builder@{git:{url: git@github.com:Mahdi-Gholami82/shimmer_builder.git, ref: v0.3.0}}"
 ```
